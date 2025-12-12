@@ -11,12 +11,15 @@ A Discord bot that controls and monitors Pterodactyl Minecraft servers. Features
 
 ## Configuration
 
-Copy `config/pterodactyl.example.json` to `config/pterodactyl.json` and fill in your panel details. You can also set environment variables:
+1. Copy `.env.example` to `.env` and set your secrets:
+   - `DISCORD_TOKEN` – Discord bot token.
+   - `PTERO_PANEL_URL` – base URL of your Pterodactyl panel (no trailing slash).
+   - `PTERO_CLIENT_KEY` – client API key for user-level actions.
+   - `PTERO_APPLICATION_KEY` – application API key for admin listing.
+   - `ADMIN_ROLES` / `ADMIN_USERS` – comma-separated IDs that can use admin buttons and commands.
+   - `ADMIN_CHANNEL_ID` – channel ID for offline alerts.
 
-- `PTERO_CLIENT_KEY` – client API key for user-level actions.
-- `PTERO_APPLICATION_KEY` – application API key for admin listing.
-- `PTERO_CONFIG` – custom path to the configuration file.
-- `DISCORD_TOKEN` – Discord bot token.
+2. Copy `config/pterodactyl.example.json` to `config/pterodactyl.json` for network/server defaults. You can override any of these values via environment variables. `PTERO_NETWORK_SERVERS` accepts a JSON array matching the `networkServers` entries if you prefer configuring entirely through `.env`.
 
 Each `networkServers` entry can override the display host/domain and custom command labels.
 
@@ -31,7 +34,16 @@ Each `networkServers` entry can override the display host/domain and custom comm
 
 ```
 npm install
-npm run dev
+npm start
 ```
 
 Use Discord’s slash command registration flow (or your preferred deployment script) to register the commands before testing.
+
+## Resolving GitHub merge conflicts
+
+If a pull request shows a banner like “This branch has conflicts that must be resolved,” use one of the options GitHub provides above the file list:
+
+- Click **Resolve conflicts** then **Open in web editor** to edit the conflicted files in the browser and commit the fixes directly.
+- If you prefer the terminal, click **View command line instructions** to follow GitHub’s step-by-step git commands for pulling the base branch, resolving the conflicts locally, and pushing the updated branch.
+
+Either option will let you clean up the conflicts in files like `README.md`, `package.json`, or `src/services/pterodactyl.js` before merging the PR.
