@@ -11,10 +11,9 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "discord.js": "^14.14.1",
-    "dotenv": "^16.3.1"
-  },
-  "devDependencies": {
-    "nodemon": "^3.0.2"
+    "discord.js": "^14.25.1",
+    "dotenv": "^16.6.1",
+    "nodemon": "^3.1.11",
+    "ws": "^8.18.3"
   }
 }

@@ -1,0 +1,19 @@
+{
+  "panelUrl": "https://panel.example.com",
+  "clientApiKey": "ptlc_XXXXXXXX",
+  "applicationApiKey": "ptla_XXXXXXXX",
+  "adminRoles": ["123456789012345678"],
+  "adminUsers": ["123456789012345678"],
+  "adminChannelId": "123456789012345678",
+  "networkServers": [
+    {
+      "id": "server-uuid-1",
+      "name": "Survival",
+      "displayHost": "play.example.com",
+      "customCommands": [
+        {"label": "Spark TPS", "command": "spark tps", "visibility": "network"},
+        {"label": "Health Report", "command": "spark healthreport --memory", "visibility": "admin"}
+      ]
+    }
+  ]
+}

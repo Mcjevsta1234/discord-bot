@@ -2,6 +2,8 @@ require('dotenv').config();
 const { Client, GatewayIntentBits, Collection } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
+const http = require('http');
+const { PterodactylClient, loadConfig } = require('./services/pterodactyl');
 
 const client = new Client({
     intents: [
@@ -10,6 +12,16 @@ const client = new Client({
         GatewayIntentBits.MessageContent,
     ]
 });
+
+const config = loadConfig();
+const ptero = new PterodactylClient(config);
+const port = Number(process.env.PORT) || 3000;
+
+// Lightweight HTTP listener so Pterodactyl can expose a health port
+http.createServer((_, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('ok');
+}).listen(port, () => console.log(`Health server listening on ${port}`));
 
 client.commands = new Collection();
 
@@ -47,26 +59,52 @@ if (fs.existsSync(eventsPath)) {
     }
 }
 
-client.once('ready', () => {
-    console.log(`Logged in as ${client.user.tag}!`);
-});
-
 client.on('interactionCreate', async interaction => {
-    if (!interaction.isChatInputCommand()) return;
-
-    const command = client.commands.get(interaction.commandName);
-
-    if (!command) return;
-
     try {
-        await command.execute(interaction);
+        if (interaction.isChatInputCommand()) {
+            const command = client.commands.get(interaction.commandName);
+            if (!command) return;
+            await command.execute(interaction);
+            return;
+        }
+
+        if (interaction.isModalSubmit() && interaction.customId.startsWith('commandModal')) {
+            const serverCommand = client.commands.get('server');
+            if (serverCommand?.handleModal) {
+                await serverCommand.handleModal(interaction);
+            }
+            return;
+        }
     } catch (error) {
         console.error(error);
         if (interaction.replied || interaction.deferred) {
-            await interaction.followUp({ content: 'There was an error while executing this command!', ephemeral: true });
+            await interaction.followUp({ content: 'There was an error while executing this interaction!', ephemeral: true });
         } else {
-            await interaction.reply({ content: 'There was an error while executing this command!', ephemeral: true });
+            await interaction.reply({ content: 'There was an error while executing this interaction!', ephemeral: true });
         }
+    }
+});
+
+client.once('ready', () => {
+    console.log(`Logged in as ${client.user.tag}!`);
+    // Passive offline monitor
+    if (config.adminChannelId) {
+        setInterval(async () => {
+            if (!config.networkServers) return;
+            for (const server of config.networkServers) {
+                try {
+                    const resources = await ptero.getServerResources(server.id);
+                    if (resources.current_state === 'offline') {
+                        const channel = await client.channels.fetch(config.adminChannelId).catch(() => null);
+                        if (channel) {
+                            channel.send(`⚠️ ${server.name} appears to be offline.`);
+                        }
+                    }
+                } catch (error) {
+                    console.warn('Monitor error', error.message);
+                }
+            }
+        }, 60000);
     }
 });
 
