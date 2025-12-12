@@ -2,13 +2,40 @@ const WebSocket = require('ws');
 const fs = require('fs');
 const path = require('path');
 
+function parseEnvList(value) {
+    return value ? value.split(',').map(v => v.trim()).filter(Boolean) : undefined;
+}
+
 function loadConfig() {
     const targetPath = process.env.PTERO_CONFIG || path.join(process.cwd(), 'config', 'pterodactyl.json');
-    if (!fs.existsSync(targetPath)) {
+    let fileConfig;
+    if (fs.existsSync(targetPath)) {
+        fileConfig = JSON.parse(fs.readFileSync(targetPath, 'utf8'));
+    } else {
         console.warn(`[pterodactyl] No config found at ${targetPath}, falling back to example config.`);
-        return require(path.join(process.cwd(), 'config', 'pterodactyl.example.json'));
+        fileConfig = require(path.join(process.cwd(), 'config', 'pterodactyl.example.json'));
     }
-    return JSON.parse(fs.readFileSync(targetPath, 'utf8'));
+
+    const merged = {
+        ...fileConfig,
+        panelUrl: process.env.PTERO_PANEL_URL || fileConfig.panelUrl,
+        clientApiKey: process.env.PTERO_CLIENT_KEY || fileConfig.clientApiKey,
+        applicationApiKey: process.env.PTERO_APPLICATION_KEY || fileConfig.applicationApiKey,
+        adminRoles: parseEnvList(process.env.ADMIN_ROLES) || fileConfig.adminRoles,
+        adminUsers: parseEnvList(process.env.ADMIN_USERS) || fileConfig.adminUsers,
+        adminChannelId: process.env.ADMIN_CHANNEL_ID || fileConfig.adminChannelId,
+        networkServers: fileConfig.networkServers || [],
+    };
+
+    if (process.env.PTERO_NETWORK_SERVERS) {
+        try {
+            merged.networkServers = JSON.parse(process.env.PTERO_NETWORK_SERVERS);
+        } catch (error) {
+            console.warn('[pterodactyl] Failed to parse PTERO_NETWORK_SERVERS JSON:', error.message);
+        }
+    }
+
+    return merged;
 }
 
 class PterodactylClient {

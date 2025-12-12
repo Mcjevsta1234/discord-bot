@@ -4,8 +4,7 @@
   "description": "A basic Discord bot",
   "main": "src/index.js",
   "scripts": {
-    "start": "node src/index.js",
-    "dev": "nodemon src/index.js"
+    "start": "node src/index.js"
   },
   "keywords": ["discord", "bot"],
   "author": "",
@@ -13,7 +12,6 @@
   "dependencies": {
     "discord.js": "^14.14.1",
     "dotenv": "^16.3.1",
-    "nodemon": "^3.0.2",
     "ws": "^8.14.2"
   }
 }
