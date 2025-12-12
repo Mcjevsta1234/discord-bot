@@ -38,3 +38,12 @@ npm start
 ```
 
 Use Discord’s slash command registration flow (or your preferred deployment script) to register the commands before testing.
+
+## Resolving GitHub merge conflicts
+
+If a pull request shows a banner like “This branch has conflicts that must be resolved,” use one of the options GitHub provides above the file list:
+
+- Click **Resolve conflicts** then **Open in web editor** to edit the conflicted files in the browser and commit the fixes directly.
+- If you prefer the terminal, click **View command line instructions** to follow GitHub’s step-by-step git commands for pulling the base branch, resolving the conflicts locally, and pushing the updated branch.
+
+Either option will let you clean up the conflicts in files like `README.md`, `package.json`, or `src/services/pterodactyl.js` before merging the PR.
