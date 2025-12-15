@@ -249,7 +249,7 @@ async def list_models(live: bool = False):
       try:
         async with httpx.AsyncClient(base_url=provider["base_url"], timeout=20) as client:
           response = await client.get(
-            "/models", headers={"Authorization": f"Bearer {provider['api_key']}"}
+            "models", headers={"Authorization": f"Bearer {provider['api_key']}"}
           )
           if response.status_code < 400:
             data = response.json()
@@ -381,7 +381,7 @@ async def call_openai_compatible(
   }
   headers = {"Authorization": f"Bearer {api_key}"}
   async with httpx.AsyncClient(base_url=base_url, timeout=60) as client:
-    response = await client.post("/chat/completions", json=payload, headers=headers)
+    response = await client.post("chat/completions", json=payload, headers=headers)
     if response.status_code >= 400:
       raise HTTPException(status_code=response.status_code, detail=response.text)
     data = response.json()
@@ -402,14 +402,28 @@ async def call_anthropic(
     "content-type": "application/json",
   }
   # Anthropics messages expect explicit roles and string content
+  system_messages: List[str] = []
+  filtered_messages: List[Dict[str, str]] = []
+  for m in messages:
+    role = m.get("role", "user")
+    content = m.get("content", "") or ""
+    if role == "system":
+      system_messages.append(content)
+      continue
+    if role not in {"user", "assistant"}:
+      role = "user"
+      content = f"[{m.get('role', 'note')}] {content}".strip()
+    filtered_messages.append({"role": role, "content": content})
+
+  system_prompt = "\n".join(system_messages).strip()
   payload = {
     "model": model,
     "max_tokens": max_tokens,
     "temperature": temperature,
-    "messages": [
-      {"role": m["role"], "content": m.get("content", "") or ""} for m in messages
-    ],
+    "messages": filtered_messages,
   }
+  if system_prompt:
+    payload["system"] = system_prompt
   async with httpx.AsyncClient(base_url=base_url, timeout=60) as client:
     response = await client.post("/v1/messages", json=payload, headers=headers)
     if response.status_code >= 400:
@@ -431,12 +445,26 @@ async def call_gemini(
 ) -> str:
   url = f"{base_url}/{model}:generateContent?key={api_key}"
   contents = []
+  system_messages: List[str] = []
   for message in messages:
-    contents.append({"role": message["role"], "parts": [{"text": message.get("content", "")}]} )
+    role = message.get("role", "user")
+    content = message.get("content", "") or ""
+    if role == "system":
+      system_messages.append(content)
+      continue
+    if role not in {"user", "assistant"}:
+      role = "user"
+      content = f"[{message.get('role', 'note')}] {content}".strip()
+    mapped_role = "model" if role == "assistant" else "user"
+    contents.append({"role": mapped_role, "parts": [{"text": content}]})
+
+  system_instruction = "\n".join(system_messages).strip()
   payload = {
     "contents": contents,
     "generationConfig": {"temperature": temperature, "maxOutputTokens": max_tokens},
   }
+  if system_instruction:
+    payload["systemInstruction"] = {"parts": [{"text": system_instruction}]}
   async with httpx.AsyncClient(timeout=60) as client:
     response = await client.post(url, json=payload)
     if response.status_code >= 400:
