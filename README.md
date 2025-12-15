@@ -1,49 +1,76 @@
-# Discord Pterodactyl Bot
+# Witchy World Agent Platform
 
-A Discord bot that controls and monitors Pterodactyl Minecraft servers. Features include:
+A clean, modular starting point for a self-hosted, cost-optimized AI platform that blends conversational chat, engineering-grade agents, web preview, and future home automation controls. The stack favors small/self-hosted models by default and escalates to stronger providers (DeepSeek, ChatGPT, etc.) only when needed.
 
-- Ephemeral (default) or public control embeds with start/stop/restart buttons and a command modal.
-- Live CPU/RAM sparklines plus disk usage, player count, and server address.
-- Console streaming via Pterodactyl websockets that auto-refreshes tokens.
-- `/network` summary for all configured public servers.
-- `/admin` tools to list or inspect any panel server.
-- Offline pings to an admin channel.
+## Monorepo Layout
+- `web/` – React/Vite UI (dark themed, "Witchy World") with chat, routing inspector, provider manager, live preview iframe, and tool log.
+- `server/` – Node.js API gateway for auth, REST/WebSocket fanout, Discord bridge endpoints, preview hosting, and proxying agent/runtime calls.
+- `agent/` – FastAPI control plane with modular tool registry (Open WebUI-inspired), provider catalog, routing policies, DeepSeek escalation, and deterministic web search tooling.
+- `scripts/` – VPS installer/uninstaller for Ubuntu that sets up the stack plus an optional local 3B model through Ollama.
+- `docs/` – Architecture notes.
 
-## Configuration
+## Quickstart
+1. Install JavaScript deps (may require a registry mirror in restricted environments):
+   ```bash
+   npm install --prefix web
+   npm install --prefix server
+   ```
+2. Install Python deps:
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate
+   pip install -r agent/requirements.txt
+   ```
+3. Copy env and set credentials:
+   ```bash
+   cp .env.example .env
+   # edit the file with your keys
+   ```
+4. Run the services (separate terminals):
+   - React UI: `npm run dev --prefix web`
+   - Node API gateway: `npm run dev --prefix server`
+   - Python agent runtime: `python -m agent.runtime.app`
 
-1. Copy `.env.example` to `.env` and set your secrets:
-   - `DISCORD_TOKEN` – Discord bot token.
-   - `PTERO_PANEL_URL` – base URL of your Pterodactyl panel (no trailing slash).
-   - `PTERO_CLIENT_KEY` – client API key for user-level actions.
-   - `PTERO_APPLICATION_KEY` – application API key for admin listing.
-   - `ADMIN_ROLES` / `ADMIN_USERS` – comma-separated IDs that can use admin buttons and commands.
-   - `ADMIN_CHANNEL_ID` – channel ID for offline alerts.
+## Environment Variables (what and how they are used)
+| Variable | Usage |
+| --- | --- |
+| `AGENT_URL` | URL of the Python agent runtime the Node gateway proxies to. |
+| `PORT` | Port the Node gateway listens on. |
+| `JWT_SECRET` | Secret used to sign login tokens for multi-user sessions. |
+| `TOGETHER_API_KEY` / `TOGETHER_BASE_URL` | Default Together AI credentials; used for Apriel 1.6/1.5 models and cost-friendly tasks. |
+| `DEEPSEEK_API_KEY` / `DEEPSEEK_BASE_URL` | Heavy-task provider (long code, refactors) automatically selected by routing heuristics. |
+| `OPENAI_API_KEY` / `OPENAI_BASE_URL` | ChatGPT-compatible provider for mainstream access. |
+| `OPENROUTER_API_KEY` / `OPENROUTER_BASE_URL` | Multi-provider fallback (Gemini, Llama, etc.) when added to routing. |
+| `LOCAL_OPENAI_BASE_URL` / `LOCAL_OPENAI_API_KEY` | Self-hosted OpenAI-compatible endpoint (Ollama/LM Studio) for cheap on-box inference. |
+| `DEFAULT_MODEL` | Default Together model when the UI does not override. |
+| `CUSTOM_PROVIDER_PATH` | JSON file where providers created in the UI/API are persisted. |
+| `ROUTING_CONFIG_PATH` | JSON file storing the provider-model routing preferences set in the UI. |
 
-2. Copy `config/pterodactyl.example.json` to `config/pterodactyl.json` for network/server defaults. You can override any of these values via environment variables. `PTERO_NETWORK_SERVERS` accepts a JSON array matching the `networkServers` entries if you prefer configuring entirely through `.env`.
+## Feature Highlights
+- **Modular tools**: DuckDuckGo web search, calculator, fetch, and pluggable Python tool modules auto-loaded from `agent/agent/runtime/tools` (Open WebUI-style). Add new tool files with a `build_tools()` function to register them hot.
+- **Provider catalog**: Together, OpenAI/ChatGPT, DeepSeek, OpenRouter, and local OpenAI-compatible endpoints available by default; add more from the UI without editing env files.
+- **Routing control**: UI/agent endpoints let you map default/heavy/search/local tasks to different providers to balance cost vs. power.
+- **Live preview**: Paste HTML or point to an existing dev server URL and view it inside the UI; previews are served via the Node gateway at `/preview/*`.
+- **Discord bridge**: `/api/discord/chat` forwards Discord channel messages to the agent for future bot wiring.
+- **Multi-user auth**: JSON-backed storage with bcrypt + JWT cookies so multiple accounts can log in.
 
-Each `networkServers` entry can override the display host/domain and custom command labels.
+## VPS Installer (Ubuntu)
+Scripts live in `scripts/`:
+- `scripts/install.sh`: Installs Node.js, Python venv, dependencies, pm2, FastAPI/Node services, and Ollama with a default `llama3.2:3b` pull for cheap local tasks. Adjust variables inside the script for ports or models.
+- `scripts/uninstall.sh`: Stops services, removes pm2 entries, and cleans the local Ollama model/data directory.
 
-## Commands
-
-- `/server name:<server>` – create a control embed (ephemeral by default, `public:true` to share). Only the requester or admins can press buttons.
-- `/network` – list CPU/RAM/player counts and IP/domain for configured servers.
-- `/admin list` – list every server on the panel (application API key required).
-- `/admin show id:<identifier|uuid>` – inspect a specific server’s limits and identifiers.
-
-## Running
-
+Run with:
+```bash
+chmod +x scripts/install.sh scripts/uninstall.sh
+./scripts/install.sh
+# ... later ...
+./scripts/uninstall.sh
 ```
-npm install
-npm start
-```
 
-Use Discord’s slash command registration flow (or your preferred deployment script) to register the commands before testing.
+## Architecture Notes
+- Conversation flows through the Node gateway (HTTP + WebSockets) to the FastAPI runtime.
+- The runtime augments messages with tools (calculator, web search) before calling an OpenAI-compatible `/chat/completions` endpoint.
+- Routing heuristics escalate to DeepSeek for long/refactor prompts; configurable mappings can override defaults.
+- The UI reflects plan steps (provider/model/tooling) and exposes provider/routing management inline.
 
-## Resolving GitHub merge conflicts
-
-If a pull request shows a banner like “This branch has conflicts that must be resolved,” use one of the options GitHub provides above the file list:
-
-- Click **Resolve conflicts** then **Open in web editor** to edit the conflicted files in the browser and commit the fixes directly.
-- If you prefer the terminal, click **View command line instructions** to follow GitHub’s step-by-step git commands for pulling the base branch, resolving the conflicts locally, and pushing the updated branch.
-
-Either option will let you clean up the conflicts in files like `README.md`, `package.json`, or `src/services/pterodactyl.js` before merging the PR.
+See `docs/architecture.md` for more details and extension ideas.
