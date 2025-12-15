@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { getDb } from '../db.js';
 
-const users = new Map();
 const JWT_SECRET = process.env.JWT_SECRET || 'change-me';
 
 export function registerAuthRoutes(app) {
@@ -10,17 +10,21 @@ export function registerAuthRoutes(app) {
     if (!email || !password) {
       return res.status(400).json({ error: 'email and password required' });
     }
-    if (users.has(email)) {
+    const db = await getDb();
+    const existing = db.data.users.find((user) => user.email === email);
+    if (existing) {
       return res.status(409).json({ error: 'user already exists' });
     }
     const hash = await bcrypt.hash(password, 10);
-    users.set(email, { email, hash });
+    db.data.users.push({ email, hash });
+    await db.write();
     return res.status(201).json({ ok: true });
   });
 
   app.post('/auth/login', async (req, res) => {
     const { email, password } = req.body;
-    const user = users.get(email);
+    const db = await getDb();
+    const user = db.data.users.find((u) => u.email === email);
     if (!user) {
       return res.status(401).json({ error: 'invalid credentials' });
     }

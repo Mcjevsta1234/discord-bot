@@ -24,7 +24,10 @@ export function Sidebar({
   return (
     <aside className="sidebar">
       <div className="sidebar__header">
-        <h2>Sessions</h2>
+        <div>
+          <p className="eyebrow brand">witchy world</p>
+          <h2>Sessions</h2>
+        </div>
         <button className="ghost" onClick={onToggleTheme}>
           Theme: {theme === 'dark' ? 'Dark' : 'Light'}
         </button>
@@ -57,7 +60,7 @@ export function Sidebar({
               </option>
             ))}
           </select>
-          <p className="muted">Switch between Together Apriel models or self-hosted endpoints.</p>
+          <p className="muted">Switch between OpenAI, Together, DeepSeek, or self-hosted endpoints.</p>
         </div>
       </nav>
     </aside>

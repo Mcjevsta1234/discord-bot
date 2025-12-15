@@ -1,4 +1,6 @@
+import json
 import os
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import httpx
@@ -12,14 +14,46 @@ from .tooling import ToolRegistry
 class Settings(BaseModel):
   together_api_key: Optional[str] = os.getenv("TOGETHER_API_KEY")
   together_base_url: str = os.getenv("TOGETHER_BASE_URL", "https://api.together.xyz/v1")
+  deepseek_api_key: Optional[str] = os.getenv("DEEPSEEK_API_KEY")
+  deepseek_base_url: str = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1")
+  openai_api_key: Optional[str] = os.getenv("OPENAI_API_KEY")
+  openai_base_url: str = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
+  openrouter_api_key: Optional[str] = os.getenv("OPENROUTER_API_KEY")
+  openrouter_base_url: str = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
   local_base_url: Optional[str] = os.getenv("LOCAL_OPENAI_BASE_URL")
   local_api_key: Optional[str] = os.getenv("LOCAL_OPENAI_API_KEY")
   default_model: str = os.getenv(
     "DEFAULT_MODEL", "togethercomputer/Apriel-1.6-15B-Thinker"
   )
+  custom_provider_path: str = os.getenv("CUSTOM_PROVIDER_PATH", "./providers.json")
+  routing_path: str = os.getenv("ROUTING_CONFIG_PATH", "./routing.json")
 
 
-def build_providers(settings: Settings) -> List[Dict[str, Any]]:
+DEFAULT_ROUTING = {
+  "default_provider": "together",
+  "heavy_provider": "deepseek",
+  "search_provider": "together",
+  "local_provider": "local",
+}
+
+
+def load_json_file(path: Path, default: Any) -> Any:
+  if not path.exists():
+    return default
+  try:
+    with path.open("r", encoding="utf-8") as handle:
+      return json.load(handle)
+  except json.JSONDecodeError:
+    return default
+
+
+def persist_json_file(path: Path, payload: Any):
+  path.parent.mkdir(parents=True, exist_ok=True)
+  with path.open("w", encoding="utf-8") as handle:
+    json.dump(payload, handle, indent=2)
+
+
+def build_providers(settings: Settings, custom: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
   providers: List[Dict[str, Any]] = []
 
   providers.append(
@@ -45,6 +79,51 @@ def build_providers(settings: Settings) -> List[Dict[str, Any]]:
 
   providers.append(
     {
+      "name": "openai",
+      "label": "OpenAI (ChatGPT)",
+      "type": "openai-compatible",
+      "base_url": settings.openai_base_url,
+      "api_key": settings.openai_api_key,
+      "default_model": "gpt-4o-mini",
+      "models": [
+        {"id": "gpt-4o-mini", "display": "GPT-4o mini (cost saver)"},
+        {"id": "gpt-4o", "display": "GPT-4o"},
+      ],
+    }
+  )
+
+  providers.append(
+    {
+      "name": "deepseek",
+      "label": "DeepSeek (heavy tasks)",
+      "type": "openai-compatible",
+      "base_url": settings.deepseek_base_url,
+      "api_key": settings.deepseek_api_key,
+      "default_model": "deepseek-coder",
+      "models": [
+        {"id": "deepseek-chat", "display": "DeepSeek Chat"},
+        {"id": "deepseek-coder", "display": "DeepSeek Coder (analysis-heavy)"},
+      ],
+    }
+  )
+
+  providers.append(
+    {
+      "name": "openrouter",
+      "label": "OpenRouter (multi-provider)",
+      "type": "openai-compatible",
+      "base_url": settings.openrouter_base_url,
+      "api_key": settings.openrouter_api_key,
+      "default_model": "google/gemini-1.5-flash-latest",
+      "models": [
+        {"id": "google/gemini-1.5-flash-latest", "display": "Gemini 1.5 Flash"},
+        {"id": "meta-llama/llama-3.1-8b-instruct", "display": "Llama 3.1 8B"},
+      ],
+    }
+  )
+
+  providers.append(
+    {
       "name": "local",
       "label": "Self-hosted",
       "type": "openai-compatible",
@@ -53,15 +132,21 @@ def build_providers(settings: Settings) -> List[Dict[str, Any]]:
       "default_model": "local/default",
       "models": [
         {"id": "local/default", "display": "Local small model"},
+        {"id": "local/coder", "display": "Local coder"},
       ],
     }
   )
 
+  providers.extend(custom)
   return providers
 
 
 settings = Settings()
-app = FastAPI(title="Codex Agent Runtime", version="0.2.0")
+custom_provider_path = Path(settings.custom_provider_path)
+custom_providers = load_json_file(custom_provider_path, [])
+routing_path = Path(settings.routing_path)
+routing_config: Dict[str, str] = load_json_file(routing_path, DEFAULT_ROUTING)
+app = FastAPI(title="Codex Agent Runtime", version="0.3.0")
 app.add_middleware(
   CORSMiddleware,
   allow_origins=["*"],
@@ -70,7 +155,7 @@ app.add_middleware(
   allow_headers=["*"],
 )
 tool_registry = ToolRegistry()
-providers = build_providers(settings)
+providers = build_providers(settings, custom_providers)
 
 
 class ChatMessage(BaseModel):
@@ -89,6 +174,23 @@ class ChatRequest(BaseModel):
   api_key: Optional[str] = Field(None, description="override provider API key")
 
 
+class ProviderDefinition(BaseModel):
+  name: str
+  label: str
+  type: str = "openai-compatible"
+  base_url: str
+  api_key: Optional[str] = None
+  default_model: str
+  models: List[Dict[str, str]] = Field(default_factory=list)
+
+
+class RoutingDefinition(BaseModel):
+  default_provider: str
+  heavy_provider: str
+  search_provider: str
+  local_provider: Optional[str] = None
+
+
 @app.get("/health")
 def health():
   return {"status": "ok"}
@@ -104,15 +206,62 @@ def list_models():
   return {"providers": providers}
 
 
+@app.get("/providers")
+def list_providers():
+  return {"providers": providers}
+
+
+@app.post("/providers")
+def add_provider(definition: ProviderDefinition):
+  global providers, custom_providers
+  providers = [p for p in providers if p["name"] != definition.name]
+  providers.append(definition.model_dump())
+  custom_providers = [p for p in custom_providers if p.get("name") != definition.name]
+  custom_providers.append(definition.model_dump())
+  persist_json_file(custom_provider_path, custom_providers)
+  return {"providers": providers}
+
+
+@app.get("/routing")
+def get_routing():
+  return {"routing": routing_config}
+
+
+@app.post("/routing")
+def update_routing(definition: RoutingDefinition):
+  global routing_config
+  routing_config = definition.model_dump()
+  persist_json_file(routing_path, routing_config)
+  return {"routing": routing_config}
+
+
 def resolve_provider(request: ChatRequest) -> Dict[str, Any]:
+  routing_target = routing_config.get("default_provider", "together")
+
+  # prefer explicit provider if present
   for provider in providers:
     if provider["name"] == request.provider:
-      return provider
+      routing_target = provider["name"]
+      break
+
+  # heuristics for escalation
+  if request.messages:
+    last_content = request.messages[-1].content or ""
+    if last_content.lower().startswith("search:"):
+      routing_target = routing_config.get("search_provider", routing_target)
+    elif len(last_content) > 1200 or "refactor" in last_content.lower():
+      routing_target = routing_config.get("heavy_provider", routing_target)
+
+  provider = next((p for p in providers if p["name"] == routing_target), None)
+  if provider:
+    return provider
+
+  if providers:
+    return providers[0]
   raise HTTPException(status_code=400, detail="provider not supported")
 
 
 def build_messages_with_tools(messages: List[ChatMessage]) -> List[Dict[str, str]]:
-  # Lightweight heuristic example: if the last message looks like math, run the calculator
   if not messages:
     return []
   last = messages[-1]
@@ -132,6 +281,26 @@ def build_messages_with_tools(messages: List[ChatMessage]) -> List[Dict[str, str
         {
           "role": "system",
           "content": f"Calculator failed for {expression}: {exc}",
+        }
+      )
+  if last.role == "user" and last.content.lower().startswith("search:"):
+    query = last.content.split(":", 1)[1].strip()
+    try:
+      result = tool_registry.run("web_search", {"query": query, "max_results": 3})
+      formatted = "\n".join(
+        f"- {item.get('title')}: {item.get('href')}" for item in result.get("results", [])
+      )
+      augmented.append(
+        {
+          "role": "system",
+          "content": f"Search results for '{query}':\n{formatted}",
+        }
+      )
+    except Exception as exc:  # noqa: BLE001
+      augmented.append(
+        {
+          "role": "system",
+          "content": f"Search failed for {query}: {exc}",
         }
       )
   return augmented
@@ -192,10 +361,13 @@ async def chat(request: ChatRequest):
       "reason": "OpenAI-compatible path",
     }
   ]
+  if augmented_messages != [m.model_dump() for m in request.messages]:
+    plan.append({"step": "tooling", "reason": "augmented with helper tools"})
 
   return {
     "message": {"role": "assistant", "content": content},
     "plan": plan,
+    "routing": routing_config,
   }
 
 

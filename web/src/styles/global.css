@@ -128,8 +128,14 @@ body {
 
 .workspace__grid {
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: 2fr 1.5fr 1fr;
   grid-template-rows: 1fr 320px;
+  gap: 16px;
+}
+
+.right-column {
+  display: flex;
+  flex-direction: column;
   gap: 16px;
 }
 
@@ -221,6 +227,29 @@ body {
   gap: 10px;
 }
 
+.provider-manager {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 12px;
+}
+
+.provider-manager form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.provider-manager input,
+.provider-manager button {
+  width: 100%;
+}
+
+.provider-manager .error {
+  color: #f87171;
+  font-size: 0.9rem;
+}
+
 .tool-log__item {
   border: 1px solid var(--border);
   padding: 12px;
@@ -283,4 +312,69 @@ button.secondary {
 
 button.ghost {
   background: transparent;
+}
+
+.brand {
+  color: #d946ef;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.preview__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.preview__frame {
+  background: #0c0d11;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  min-height: 260px;
+  overflow: hidden;
+}
+
+.preview__frame iframe {
+  width: 100%;
+  height: 320px;
+  border: none;
+  background: #fff;
+}
+
+.preview__editor {
+  margin-top: 12px;
+}
+
+.preview__editor textarea,
+.preview__editor input {
+  width: 100%;
+  background: #0f1117;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.routing__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+[data-theme='dark'] {
+  --bg: #0b0a10;
+  --panel: #11121a;
+  --border: #1f2330;
+  --text: #f6f5ff;
+  --muted: #9ca3af;
+  --accent: #c084fc;
+}
+
+[data-theme='light'] {
+  --bg: #f8fafc;
+  --panel: #ffffff;
+  --border: #e5e7eb;
+  --text: #0f172a;
+  --muted: #475569;
+  --accent: #8b5cf6;
 }

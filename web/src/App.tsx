@@ -3,6 +3,8 @@ import { ChatPanel } from './components/ChatPanel';
 import { Sidebar } from './components/Sidebar';
 import { PreviewPane } from './components/PreviewPane';
 import { ToolLog } from './components/ToolLog';
+import { ProviderManager } from './components/ProviderManager';
+import { RoutingConfig } from './components/RoutingConfig';
 
 export type Message = { role: 'system' | 'user' | 'assistant'; content: string };
 export type PlanStep = { step: string; model?: string; provider?: string; reason?: string };
@@ -15,6 +17,13 @@ export type Provider = {
   default_model: string;
 };
 
+export type Routing = {
+  default_provider: string;
+  heavy_provider: string;
+  search_provider: string;
+  local_provider?: string;
+};
+
 function App() {
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [messages, setMessages] = useState<Message[]>([
@@ -22,12 +31,17 @@ function App() {
   ]);
   const [plan, setPlan] = useState<PlanStep[]>([]);
   const [providers, setProviders] = useState<Provider[]>([]);
+  const [routing, setRouting] = useState<Routing | null>(null);
   const [selectedProvider, setSelectedProvider] = useState<string>('together');
   const [selectedModel, setSelectedModel] = useState<string>('togethercomputer/Apriel-1.6-15B-Thinker');
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
-    fetch('/api/models')
+    document.body.setAttribute('data-theme', theme);
+  }, [theme]);
+
+  useEffect(() => {
+    fetch('/api/providers')
       .then((res) => res.json())
       .then((data) => {
         const providerList: Provider[] = data.providers ?? [];
@@ -41,7 +55,25 @@ function App() {
       .catch((error) => {
         console.error('failed to load providers', error);
       });
+
+    fetch('/api/routing')
+      .then((res) => res.json())
+      .then((data) => setRouting(data.routing))
+      .catch((error) => console.error('failed to load routing', error));
   }, []);
+
+  const handleProvidersUpdated = (providerList: Provider[]) => {
+    setProviders(providerList);
+    if (!providerList.find((p) => p.name === selectedProvider) && providerList.length) {
+      setSelectedProvider(providerList[0].name);
+      setSelectedModel(providerList[0].default_model);
+    }
+  };
+
+  const handleRoutingUpdated = (next: Routing) => {
+    setRouting(next);
+    if (next.default_provider) setSelectedProvider(next.default_provider);
+  };
 
   const modelsForProvider = useMemo(() => {
     const provider = providers.find((p) => p.name === selectedProvider);
@@ -72,6 +104,7 @@ function App() {
         setMessages((prev) => [...prev, data.message]);
       }
       setPlan(data.plan ?? []);
+      if (data.routing) setRouting(data.routing);
     } catch (error) {
       console.error(error);
       setMessages((prev) => [
@@ -99,8 +132,9 @@ function App() {
         <section className="workspace__main">
           <header className="workspace__header">
             <div>
-              <h1>Codex Platform</h1>
-              <p>Chat, orchestrate tools, and preview code in one place.</p>
+              <p className="eyebrow brand">Witchy World</p>
+              <h1>agent.witchy.world</h1>
+              <p>Chat, orchestrate tools, and preview code with modular routing.</p>
             </div>
             <div className="header__actions">
               <div className="select-row">
@@ -134,7 +168,15 @@ function App() {
           <div className="workspace__grid">
             <ChatPanel messages={messages} onSend={handleSend} pending={sending} />
             <PreviewPane />
-            <ToolLog plan={plan} />
+            <div className="right-column">
+              <ToolLog plan={plan} />
+              <RoutingConfig
+                providers={providers}
+                routing={routing}
+                onUpdate={handleRoutingUpdated}
+              />
+              <ProviderManager onAdded={handleProvidersUpdated} />
+            </div>
           </div>
         </section>
       </main>

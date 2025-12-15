@@ -1,38 +1,76 @@
-# Codex-Class Chatbot & Agent Platform
+# Witchy World Agent Platform
 
-This repository is a clean, modular starting point for building a self-hosted, cost-optimized AI platform that combines conversational chat, engineering-grade agent tooling, and home automation control.
+A clean, modular starting point for a self-hosted, cost-optimized AI platform that blends conversational chat, engineering-grade agents, web preview, and future home automation controls. The stack favors small/self-hosted models by default and escalates to stronger providers (DeepSeek, ChatGPT, etc.) only when needed.
 
 ## Monorepo Layout
-- `web/` – React-based web UI with chat, multi-session navigation, model/provider selectors, tool-log panel, code editor placeholders, and live preview framing.
-- `server/` – Node.js API gateway handling authentication scaffolding, REST/WebSocket endpoints, proxying chat/model calls to the agent runtime, file transfer surfaces, and preview proxy hooks.
-- `agent/` – Python control plane for conversational reasoning, LLM routing across providers (Together or self-hosted OpenAI-compatible), tool orchestration, and execution management.
-- `docs/` – Additional design notes and specifications.
+- `web/` – React/Vite UI (dark themed, "Witchy World") with chat, routing inspector, provider manager, live preview iframe, and tool log.
+- `server/` – Node.js API gateway for auth, REST/WebSocket fanout, Discord bridge endpoints, preview hosting, and proxying agent/runtime calls.
+- `agent/` – FastAPI control plane with modular tool registry (Open WebUI-inspired), provider catalog, routing policies, DeepSeek escalation, and deterministic web search tooling.
+- `scripts/` – VPS installer/uninstaller for Ubuntu that sets up the stack plus an optional local 3B model through Ollama.
+- `docs/` – Architecture notes.
 
 ## Quickstart
-1. Install dependencies for the JavaScript projects:
+1. Install JavaScript deps (may require a registry mirror in restricted environments):
    ```bash
    npm install --prefix web
    npm install --prefix server
    ```
-2. Install Python dependencies:
+2. Install Python deps:
    ```bash
    python -m venv .venv
    source .venv/bin/activate
    pip install -r agent/requirements.txt
    ```
-3. Start the services (each in its own terminal):
- - React UI: `npm run dev --prefix web`
- - Node API: `npm run dev --prefix server`
-  - Python agent runtime: `python -m agent.runtime.app`
+3. Copy env and set credentials:
+   ```bash
+   cp .env.example .env
+   # edit the file with your keys
+   ```
+4. Run the services (separate terminals):
+   - React UI: `npm run dev --prefix web`
+   - Node API gateway: `npm run dev --prefix server`
+   - Python agent runtime: `python -m agent.runtime.app`
 
-### Environment
+## Environment Variables (what and how they are used)
+| Variable | Usage |
+| --- | --- |
+| `AGENT_URL` | URL of the Python agent runtime the Node gateway proxies to. |
+| `PORT` | Port the Node gateway listens on. |
+| `JWT_SECRET` | Secret used to sign login tokens for multi-user sessions. |
+| `TOGETHER_API_KEY` / `TOGETHER_BASE_URL` | Default Together AI credentials; used for Apriel 1.6/1.5 models and cost-friendly tasks. |
+| `DEEPSEEK_API_KEY` / `DEEPSEEK_BASE_URL` | Heavy-task provider (long code, refactors) automatically selected by routing heuristics. |
+| `OPENAI_API_KEY` / `OPENAI_BASE_URL` | ChatGPT-compatible provider for mainstream access. |
+| `OPENROUTER_API_KEY` / `OPENROUTER_BASE_URL` | Multi-provider fallback (Gemini, Llama, etc.) when added to routing. |
+| `LOCAL_OPENAI_BASE_URL` / `LOCAL_OPENAI_API_KEY` | Self-hosted OpenAI-compatible endpoint (Ollama/LM Studio) for cheap on-box inference. |
+| `DEFAULT_MODEL` | Default Together model when the UI does not override. |
+| `CUSTOM_PROVIDER_PATH` | JSON file where providers created in the UI/API are persisted. |
+| `ROUTING_CONFIG_PATH` | JSON file storing the provider-model routing preferences set in the UI. |
 
-Copy `.env.example` to `.env` and set your credentials. At minimum set `TOGETHER_API_KEY` for Together usage or `LOCAL_OPENAI_BASE_URL`/`LOCAL_OPENAI_API_KEY` for a self-hosted endpoint. The React UI lets you toggle between providers/models at runtime.
+## Feature Highlights
+- **Modular tools**: DuckDuckGo web search, calculator, fetch, and pluggable Python tool modules auto-loaded from `agent/agent/runtime/tools` (Open WebUI-style). Add new tool files with a `build_tools()` function to register them hot.
+- **Provider catalog**: Together, OpenAI/ChatGPT, DeepSeek, OpenRouter, and local OpenAI-compatible endpoints available by default; add more from the UI without editing env files.
+- **Routing control**: UI/agent endpoints let you map default/heavy/search/local tasks to different providers to balance cost vs. power.
+- **Live preview**: Paste HTML or point to an existing dev server URL and view it inside the UI; previews are served via the Node gateway at `/preview/*`.
+- **Discord bridge**: `/api/discord/chat` forwards Discord channel messages to the agent for future bot wiring.
+- **Multi-user auth**: JSON-backed storage with bcrypt + JWT cookies so multiple accounts can log in.
 
-## Design Goals
-- **Conversation-first** with real-time updates via WebSockets.
-- **Tool power** through a plugin-like tool registry and controlled runtimes.
-- **Cost-aware** by prioritizing self-hosted small models and escalating only when necessary.
-- **Extensible** with clearly separated UI, API, and agent layers.
+## VPS Installer (Ubuntu)
+Scripts live in `scripts/`:
+- `scripts/install.sh`: Installs Node.js, Python venv, dependencies, pm2, FastAPI/Node services, and Ollama with a default `llama3.2:3b` pull for cheap local tasks. Adjust variables inside the script for ports or models.
+- `scripts/uninstall.sh`: Stops services, removes pm2 entries, and cleans the local Ollama model/data directory.
 
-See `docs/architecture.md` for the high-level architecture plan.
+Run with:
+```bash
+chmod +x scripts/install.sh scripts/uninstall.sh
+./scripts/install.sh
+# ... later ...
+./scripts/uninstall.sh
+```
+
+## Architecture Notes
+- Conversation flows through the Node gateway (HTTP + WebSockets) to the FastAPI runtime.
+- The runtime augments messages with tools (calculator, web search) before calling an OpenAI-compatible `/chat/completions` endpoint.
+- Routing heuristics escalate to DeepSeek for long/refactor prompts; configurable mappings can override defaults.
+- The UI reflects plan steps (provider/model/tooling) and exposes provider/routing management inline.
+
+See `docs/architecture.md` for more details and extension ideas.
