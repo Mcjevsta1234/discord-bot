@@ -80,6 +80,10 @@ function App() {
     return provider?.models ?? [];
   }, [providers, selectedProvider]);
 
+  const providerOptions = providers.length
+    ? providers
+    : [{ name: 'none', label: 'No providers configured', type: 'none', models: [], default_model: '' }];
+
   const handleSend = async (content: string) => {
     const nextMessages = [...messages, { role: 'user' as const, content }];
     setMessages(nextMessages);
@@ -142,8 +146,9 @@ function App() {
                 <select
                   value={selectedProvider}
                   onChange={(event) => setSelectedProvider(event.target.value)}
+                  disabled={!providers.length}
                 >
-                  {providers.map((provider) => (
+                  {providerOptions.map((provider) => (
                     <option key={provider.name} value={provider.name}>
                       {provider.label}
                     </option>
@@ -155,6 +160,7 @@ function App() {
                 <select
                   value={selectedModel}
                   onChange={(event) => setSelectedModel(event.target.value)}
+                  disabled={!modelsForProvider.length}
                 >
                   {modelsForProvider.map((model) => (
                     <option key={model.id} value={model.id}>

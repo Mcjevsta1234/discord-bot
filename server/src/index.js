@@ -5,6 +5,7 @@ import cookieParser from 'cookie-parser';
 import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
 import { join } from 'path';
+import { existsSync, mkdirSync } from 'fs';
 import { registerAuthRoutes } from './routes/auth.js';
 import { registerChatRoutes } from './routes/chat.js';
 import { registerProviderRoutes } from './routes/providers.js';
@@ -18,6 +19,9 @@ app.use(express.json());
 app.use(cookieParser());
 
 const previewDir = join(process.cwd(), 'server', 'data', 'previews');
+if (!existsSync(previewDir)) {
+  mkdirSync(previewDir, { recursive: true });
+}
 app.use('/preview', express.static(previewDir));
 
 registerAuthRoutes(app);

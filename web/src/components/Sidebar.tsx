@@ -21,6 +21,10 @@ export function Sidebar({
   selectedModel,
   onSelectModel,
 }: SidebarProps) {
+  const providerOptions = providers.length
+    ? providers
+    : [{ name: 'none', label: 'No providers configured', type: 'none', models: [], default_model: '' }];
+
   return (
     <aside className="sidebar">
       <div className="sidebar__header">
@@ -39,8 +43,9 @@ export function Sidebar({
             className="sidebar__select"
             value={selectedProvider}
             onChange={(event) => onSelectProvider(event.target.value)}
+            disabled={!providers.length}
           >
-            {providers.map((provider) => (
+            {providerOptions.map((provider) => (
               <option key={provider.name} value={provider.name}>
                 {provider.label}
               </option>
@@ -53,6 +58,7 @@ export function Sidebar({
             className="sidebar__select"
             value={selectedModel}
             onChange={(event) => onSelectModel(event.target.value)}
+            disabled={!models.length}
           >
             {models.map((model) => (
               <option key={model.id} value={model.id}>
