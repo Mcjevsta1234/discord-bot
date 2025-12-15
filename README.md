@@ -76,6 +76,25 @@ chmod +x scripts/install.sh scripts/uninstall.sh
 ./scripts/uninstall.sh
 ```
 
+## Publishing to a fresh GitHub repository
+If you want to publish this stack under a new repository name (for example, `witchy-agent`), create an empty repository on GitHub and point your local clone at it:
+
+```bash
+git remote remove origin  # optional: detach from the current remote
+git remote add origin git@github.com:<your-account>/witchy-agent.git
+git push -u origin work   # or the branch you are using
+```
+
+For HTTPS instead of SSH:
+
+```bash
+git remote remove origin
+git remote add origin https://github.com/<your-account>/witchy-agent.git
+git push -u origin work
+```
+
+These commands only affect your local clone; no credentials are stored in the repo. Once pushed, GitHub Actions or deployment hooks can be added in your new project without changing this codebase.
+
 ## Architecture Notes
 - Conversation flows through the Node gateway (HTTP + WebSockets) to the FastAPI runtime.
 - The runtime augments messages with tools (calculator, web search) before calling an OpenAI-compatible `/chat/completions` endpoint.
