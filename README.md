@@ -1,49 +1,38 @@
-# Discord Pterodactyl Bot
+# Codex-Class Chatbot & Agent Platform
 
-A Discord bot that controls and monitors Pterodactyl Minecraft servers. Features include:
+This repository is a clean, modular starting point for building a self-hosted, cost-optimized AI platform that combines conversational chat, engineering-grade agent tooling, and home automation control.
 
-- Ephemeral (default) or public control embeds with start/stop/restart buttons and a command modal.
-- Live CPU/RAM sparklines plus disk usage, player count, and server address.
-- Console streaming via Pterodactyl websockets that auto-refreshes tokens.
-- `/network` summary for all configured public servers.
-- `/admin` tools to list or inspect any panel server.
-- Offline pings to an admin channel.
+## Monorepo Layout
+- `web/` – React-based web UI with chat, multi-session navigation, model/provider selectors, tool-log panel, code editor placeholders, and live preview framing.
+- `server/` – Node.js API gateway handling authentication scaffolding, REST/WebSocket endpoints, proxying chat/model calls to the agent runtime, file transfer surfaces, and preview proxy hooks.
+- `agent/` – Python control plane for conversational reasoning, LLM routing across providers (Together or self-hosted OpenAI-compatible), tool orchestration, and execution management.
+- `docs/` – Additional design notes and specifications.
 
-## Configuration
+## Quickstart
+1. Install dependencies for the JavaScript projects:
+   ```bash
+   npm install --prefix web
+   npm install --prefix server
+   ```
+2. Install Python dependencies:
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate
+   pip install -r agent/requirements.txt
+   ```
+3. Start the services (each in its own terminal):
+ - React UI: `npm run dev --prefix web`
+ - Node API: `npm run dev --prefix server`
+  - Python agent runtime: `python -m agent.runtime.app`
 
-1. Copy `.env.example` to `.env` and set your secrets:
-   - `DISCORD_TOKEN` – Discord bot token.
-   - `PTERO_PANEL_URL` – base URL of your Pterodactyl panel (no trailing slash).
-   - `PTERO_CLIENT_KEY` – client API key for user-level actions.
-   - `PTERO_APPLICATION_KEY` – application API key for admin listing.
-   - `ADMIN_ROLES` / `ADMIN_USERS` – comma-separated IDs that can use admin buttons and commands.
-   - `ADMIN_CHANNEL_ID` – channel ID for offline alerts.
+### Environment
 
-2. Copy `config/pterodactyl.example.json` to `config/pterodactyl.json` for network/server defaults. You can override any of these values via environment variables. `PTERO_NETWORK_SERVERS` accepts a JSON array matching the `networkServers` entries if you prefer configuring entirely through `.env`.
+Copy `.env.example` to `.env` and set your credentials. At minimum set `TOGETHER_API_KEY` for Together usage or `LOCAL_OPENAI_BASE_URL`/`LOCAL_OPENAI_API_KEY` for a self-hosted endpoint. The React UI lets you toggle between providers/models at runtime.
 
-Each `networkServers` entry can override the display host/domain and custom command labels.
+## Design Goals
+- **Conversation-first** with real-time updates via WebSockets.
+- **Tool power** through a plugin-like tool registry and controlled runtimes.
+- **Cost-aware** by prioritizing self-hosted small models and escalating only when necessary.
+- **Extensible** with clearly separated UI, API, and agent layers.
 
-## Commands
-
-- `/server name:<server>` – create a control embed (ephemeral by default, `public:true` to share). Only the requester or admins can press buttons.
-- `/network` – list CPU/RAM/player counts and IP/domain for configured servers.
-- `/admin list` – list every server on the panel (application API key required).
-- `/admin show id:<identifier|uuid>` – inspect a specific server’s limits and identifiers.
-
-## Running
-
-```
-npm install
-npm start
-```
-
-Use Discord’s slash command registration flow (or your preferred deployment script) to register the commands before testing.
-
-## Resolving GitHub merge conflicts
-
-If a pull request shows a banner like “This branch has conflicts that must be resolved,” use one of the options GitHub provides above the file list:
-
-- Click **Resolve conflicts** then **Open in web editor** to edit the conflicted files in the browser and commit the fixes directly.
-- If you prefer the terminal, click **View command line instructions** to follow GitHub’s step-by-step git commands for pulling the base branch, resolving the conflicts locally, and pushing the updated branch.
-
-Either option will let you clean up the conflicts in files like `README.md`, `package.json`, or `src/services/pterodactyl.js` before merging the PR.
+See `docs/architecture.md` for the high-level architecture plan.
